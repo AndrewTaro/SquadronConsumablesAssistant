@@ -1,0 +1,324 @@
+(def constant SQD_CONS_ASSISTANT_CONSUMABLE_ID {
+	HEAL_FORSAGE: 20
+	CALL_FIGHTER: 21,
+	REGENERATE_HEALTH: 22,
+	PLANE_SMOKE_GENERATOR: 41,
+})
+
+(def constant SQD_CONS_ASSISTANT_TARGET_CONSUMABLES [
+	"SQD_CONS_ASSISTANT_CONSUMABLE_ID.PLANE_SMOKE_GENERATOR",
+	"SQD_CONS_ASSISTANT_CONSUMABLE_ID.CALL_FIGHTER",
+])
+
+(def constant SQD_CONS_ASSISTANT_CONSUMABLE_STATE_COLOR {
+	'0': "SC.Ui_styles.SERVICE_COLORS.WHITE", #READY
+	'1': "SC.Ui_styles.SERVICE_COLORS.GREEN", #AT_WORK
+	'2': "SC.Ui_styles.SERVICE_COLORS.YELLOW", #RELOAD
+	'3': "SC.Ui_styles.SERVICE_COLORS.RED", #NO_AMMO
+	'4': "SC.Ui_styles.SERVICE_COLORS.YELLOW", #PREPARATION
+})
+
+(def constant SQD_CONS_ASSISTANT_CONSUMABLE_STATE_TEXT {
+	'0': 'RDY',
+	'3': 'EMPTY',
+	'4': '--',
+})
+
+(def element PlaneReloadProgressAndAttackersBar (_squadronId:number, _isBig:bool, _showProgressBar:bool) layout=true
+	(scope
+		(var squadronEntity:gfx = "$datahub.getPrimaryEntity(CC.ownSquadron, _squadronId)")
+		(var attackerSize:number = "squadronEntity ? squadronEntity.ownSquadron.attackerSize : 0")
+		(var maxSquadPlanes:number = "squadronEntity ? squadronEntity.health.max : 0" (event "squadronEntity.health.evValueChanged"))
+
+		(var hangarEntity:gfx = "$datahub.getPrimaryEntity(CC.hangar, _squadronId)")
+		(var curPlanesInHangar:number = "hangarEntity ? hangarEntity.hangar.planeCount : 0" (event "hangarEntity.hangar.evChanged"))
+		(var maxPlanesInHangar:number = "hangarEntity ? hangarEntity.hangar.maxPlaneCount : 0" (event "hangarEntity.hangar.evChanged"))
+
+		(var countdown:gfx = "hangarEntity && hangarEntity.hasComponent(CC.countDown) ? hangarEntity.countDown : null" (event "hangarEntity.evAdded") (event "hangarEntity.evRemoved"))
+		(var reloadRemainTime:number = "countdown ? countdown.remain : 0" (event "countdown.evRemainChanged"))
+		(macro HUMAN_READABLE_COUNTDOWN_SCOPE "reloadRemainTime")
+
+		(var numAttackers:number = "attackerSize ? maxSquadPlanes/attackerSize : 0")
+		(var squadPlanesReady:number = "curPlanesInHangar < maxSquadPlanes ? curPlanesInHangar : maxSquadPlanes")
+
+		(var _width:number = "_isBig ? SLOT_SIZE : SLOT_SIZE / 2")
+		(var _height:number = "_width")
+
+		(var hangarStatusBarSize:number =  "maxPlanesInHangar ? (curPlanesInHangar / maxPlanesInHangar) * (_width - 2) : 0")
+		(var restoreAnimation:bool = "curPlanesInHangar < maxPlanesInHangar && reloadRemainTime > 0")
+
+		(var cameraEntity:gfx = "$datahub.getSingleEntity(CC.camera)")
+		(var altVision:bool = "cameraEntity.camera.altVision" (event "cameraEntity.camera.evAltVisionChanged"))
+
+		(var avatarEntity:gfx = "$datahub.getSingleEntity(CC.playerAvatar)")
+		(var shipType:str = "avatarEntity.avatar.ship.ref.ship.subtype")
+		(var isAircarrier:bool = "shipType == ShipTypes.AIRCARRIER")
+
+		(var statusBarTextParams:array = "altVision ? [curPlanesInHangar, maxPlanesInHangar] : [squadPlanesReady, maxSquadPlanes]")
+
+	)
+
+	(style
+		(position = "absolute")
+		(width = "_width")
+		(height = "_height")
+	)
+
+	(block
+		(style
+			(position = "absolute")
+			(width = "_width")
+			(bottom = "_height + XXS")
+			(align = "center")
+		)
+
+    	#mod ==============================
+	    (block
+			(style
+				(align="top|center")
+				#(height = "22")
+			)
+			(element SqdConsAssistant "_squadronId")
+	    )
+    	#==================================
+
+		(element PlanesStatusBarText "statusBarTextParams[0]" "statusBarTextParams[1]" "curPlanesInHangar >= maxSquadPlanes")
+
+
+		(block
+			(style (marginTop = 2px))
+
+			(mc hud_bar_bg_sliced
+				(style
+					(height = 4px)
+					(width = "_width")
+				)
+			)
+
+			(hblock
+				(bind visible "!altVision")
+				(style (position = "absolute") (paddingTop = 1px))
+				(controller $Repeat renderer='AttackerStatusBar' layout=false
+					(bind count "numAttackers")
+					(args "_squadronId" "_width")
+				)
+			)
+
+			(block
+				(bind visible "altVision")
+				(style
+					(position = "absolute") (height = 2px) (left = 1) (top = 1)
+					(backgroundColor = 0xFFD7D7D7)
+					(bind width "hangarStatusBarSize")
+				)
+			)
+		)
+	)
+
+	(block
+		(bind visible "altVision && restoreAnimation && isAircarrier && _showProgressBar")
+		(class $FullsizeAbsolute)
+		(style
+			(backgroundColor = 0xCC000000)
+			(align = "center|middle")
+		)
+		(block
+			(tf
+				(style (marginRight = 1px) (marginLeft = 2px))
+				(alpha = 0.8)
+				(bind class "_isBig ? '$TextDefault27NM' : '$TextDefaultBold13NM'")
+				(bind text "countdownText")
+			)
+		)
+	)
+)
+
+#mod =======================================================================================================================================================================================================
+(def element SqdConsAssistant(_squadronId:number)
+	(scope
+
+	)
+
+	(vtile
+		(style
+			(vgap = 10px)
+		)
+
+		(controller $Repeat renderer='SqdConsAssistantConsumableItem'
+			(bind count "SQD_CONS_ASSISTANT_TARGET_CONSUMABLES.length")
+			(args
+				_squadronId="_squadronId"
+				_consumableId="SQD_CONS_ASSISTANT_TARGET_CONSUMABLES[$index]"
+			)
+		)
+	)
+)
+
+(def element SqdConsAssistantConsumableItem(_squadronId:number, _consumableId:number)
+	(scope
+		(var battleConsumableEntity:gfx = "$datahub.getPrimaryCompositeEntity(CC.battleConsumable, _consumableId, _squadronId)")
+		#Consumable Entity
+		(var battleConsumable:gfx = "battleConsumableEntity ? battleConsumableEntity.battleConsumable : null")
+		(var consumableNum:number = "battleConsumable.consumeNum" (event "battleConsumable.evConsumeNumChanged"))
+		(var consumableState:number = "battleConsumable.state" (event "battleConsumable.evStateChanged"))
+
+		(var hasConsumable:bool = "battleConsumable")
+
+		#Countdown
+		(var timer:gfx = "$datahub.getSingleComponent(CC.timer)")
+		(var countdown:gfx = "battleConsumableEntity && battleConsumableEntity.hasComponent(CC.countDown) ? battleConsumableEntity.countDown : null" (event "battleConsumableEntity.evAdded") (event "battleConsumableEntity.evRemoved"))
+		(var remainTime:str = "countdown ? countdown.endTime - timer.currentTime : 0" (event "timer.evFrequent") (event "countdown.evEndTimeChanged"))
+		(var remainTimeStr:str = "floor(remainTime)")
+	)
+
+	(style
+		(bind alpha "hasConsumable ? 1.0 : 0.0")
+	)
+
+	(element SqdConsAssistantTextItem
+		_remainTimeStr="remainTimeStr"
+		_consumableNum="consumableNum"
+		_consumableState="consumableState"
+	)
+)
+
+(def element SqdConsAssistantTextItem(_remainTimeStr:str, _consumableNum:number, _consumableState:number)
+	(scope
+		(var consumableState:str = "toString(_consumableState)")
+		(var isEmpty:bool = "SC.Battle.CONSUMABLE_STATES.NO_AMMO == _consumableState")
+		
+		(var textColor:number = "	consumableState in SQD_CONS_ASSISTANT_CONSUMABLE_STATE_COLOR ?
+									SQD_CONS_ASSISTANT_CONSUMABLE_STATE_COLOR[consumableState] :
+									SC.Ui_styles.SERVICE_COLORS.WHITE"
+		)
+		(var timeStr:str = 		"	consumableState in SQD_CONS_ASSISTANT_CONSUMABLE_STATE_TEXT ?
+									SQD_CONS_ASSISTANT_CONSUMABLE_STATE_TEXT[consumableState] :
+									_remainTimeStr + 's'"
+		)
+	)
+
+	(hblock
+		(style
+			(align="middle|center")
+			(width = 45px)
+		)
+		
+		(tf
+			(class $SqdConsAssistantText)
+			(style
+				(bind textColor "textColor")
+				(bind width "isEmpty ? 100% : 65%")
+			)
+			(bind text "timeStr")
+		)
+
+		(tf
+			(class $SqdConsAssistantText)
+			(style
+				(textColor = "SC.Ui_styles.SERVICE_COLORS.WHITE")
+				(width = "35%")
+				(marginLeft = 5px)
+			)
+			(bind visible "!isEmpty")
+			(bind text "'/' + _consumableNum")
+		)
+	)
+)
+
+(def element SqdConsAssistantSmokeIndication()
+	(scope
+		(event evPlayAnimation)
+		(event evEndAnimation)
+
+		(macro STAGE_SIZE)
+		(macro IS_ON_PLANE)
+
+		(var smokeIndication:gfx = "$datahub.getSingleComponent(CC.smokeIndication)")
+		(var insideLifeTime:number = "smokeIndication.smokeInsideLifeTime" (event "smokeIndication.evSmokeTimerChanged"))
+		
+		(var isAlmostEnd:bool = "insideLifeTime < 10.0")
+		(var isAboutToEnd:bool = "insideLifeTime < 30.0")
+
+		(var iconName:str = "	isAlmostEnd  ? 'bitmap:icon_smokescreen_ending' :
+								isAboutToEnd ? 'bitmap:icon_smokescreen_warning' :
+								'bitmap:icon_smokescreen_default'"
+		)
+
+		(var cameraEntity:gfx = "$datahub.getSingleEntity(CC.camera)")
+		(var tacticalMap:bool = "cameraEntity.camera.isTactical" (event "cameraEntity.camera.evTacticalStateChanged"))
+
+		(var isIndicatorVisible:bool = "isOnPlane && !tacticalMap && insideLifeTime > 0")
+		(var timeStr:str = "countdownFormat(insideLifeTime, 0, true)")
+	)
+
+	(style
+		(position = "absolute")
+		(bind width "stageWidth")
+		(bind height "stageHeight")
+	)
+
+	#(bind visible "isOnPlane && !tacticalMap && insideLifeTime > 0")
+
+	(dispatch evPlayAnimation (bind trigger "isIndicatorVisible"))
+
+	(block
+		(controller $Animation
+			(bindcall play  duration=0.15
+							from="{ alpha: 0, scaleX: 2, scaleY: 2 }"
+							to="{ alpha: 1, scaleX: 1, scaleY: 1 }"
+							(bind enabled "isIndicatorVisible")
+							(event "evPlayAnimation")
+			)
+			(bindcall play  duration=0.15
+							from="{ alpha: 1, scaleX: 1, scaleY: 1 }"
+							to="{ alpha: 0, scaleX: 2, scaleY: 2 }"
+							(bind enabled "!isIndicatorVisible")
+							(event "evPlayAnimation")
+			)
+		)
+
+		(style
+			(position = "absolute")
+			(bind left "stageWidth / 2 - 250")
+			(bind top "stageHeight / 2 - 220")
+			(pivotX=50%)
+			(pivotY=50%)
+			(align = "middle|center")
+			(alpha = 0)
+		)
+		
+		(block
+			(style
+				(width = "32px")
+				(height = "32px")
+				(align = "center|bottom")
+			)
+			(block
+				(style
+					(width = "30px")
+					(height = "32px")
+					(align = "center|middle")
+					(bind backgroundImage "iconName")
+				)
+			)
+		)
+		(tf
+			(class $IndicatorText)
+			(style
+				(height = "20px")
+				(marginTop = "1px")
+			)
+			(bind class "	isAlmostEnd	 ? '$IndicatorTextCritical' :
+							isAboutToEnd ? '$IndicatorTextWarning'  :
+										   '$None'")
+
+			(bind text "countdownFormat(insideLifeTime, 0, true)")
+		)
+	)
+)
+
+(def css $SqdConsAssistantText ()
+	(extends $IndicatorText)
+	(textAlign = "center")
+	(fontSize = 12)
+)

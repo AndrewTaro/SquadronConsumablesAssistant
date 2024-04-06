@@ -50,10 +50,6 @@
 		(var cameraEntity:gfx = "$datahub.getSingleEntity(CC.camera)")
 		(var altVision:bool = "cameraEntity.camera.altVision" (event "cameraEntity.camera.evAltVisionChanged"))
 
-		(var avatarEntity:gfx = "$datahub.getSingleEntity(CC.playerAvatar)")
-		(var shipType:str = "avatarEntity.avatar.ship.ref.ship.subtype")
-		(var isAircarrier:bool = "shipType == ShipTypes.AIRCARRIER")
-
 		(var statusBarTextParams:array = "altVision ? [curPlanesInHangar, maxPlanesInHangar] : [squadPlanesReady, maxSquadPlanes]")
 
 	)
@@ -116,7 +112,7 @@
 	)
 
 	(block
-		(bind visible "altVision && restoreAnimation && isAircarrier && _showProgressBar")
+		(bind visible "altVision && restoreAnimation && _showProgressBar")
 		(class $FullsizeAbsolute)
 		(style
 			(backgroundColor = 0xCC000000)

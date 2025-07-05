@@ -155,7 +155,7 @@
 		(var battleConsumableEntity:gfx = "$datahub.getPrimaryCompositeEntity(CC.battleConsumable, _consumableId, _squadronId)")
 		#Consumable Entity
 		(var battleConsumable:gfx = "battleConsumableEntity ? battleConsumableEntity.battleConsumable : null")
-		(var consumableNum:number = "battleConsumable.maxCharge" (event "battleConsumable.evMaxChargeChanged"))
+		(var consumableNum:number = "battleConsumable.currentCharge" (event "battleConsumable.evCurrentChargeChanged"))
 		(var consumableState:number = "battleConsumable.state" (event "battleConsumable.evStateChanged"))
 
 		(var hasConsumable:bool = "battleConsumable")

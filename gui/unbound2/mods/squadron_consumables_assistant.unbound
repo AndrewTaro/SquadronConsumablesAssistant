@@ -11,12 +11,12 @@
 ])
 
 (def constant SQD_CONS_ASSISTANT_CONSUMABLE_STATE_COLOR {
-	"SC.Battle.CONSUMABLE_STATES.READY"			: "SC.Ui_styles.SERVICE_COLORS.WHITE", #READY
-	"SC.Battle.CONSUMABLE_STATES.SELECTED"		: "SC.Ui_styles.SERVICE_COLORS.GREEN", #AT_WORK
-	"SC.Battle.CONSUMABLE_STATES.AT_WORK"		: "SC.Ui_styles.SERVICE_COLORS.GREEN", #AT_WORK
-	"SC.Battle.CONSUMABLE_STATES.RELOAD"		: "SC.Ui_styles.SERVICE_COLORS.YELLOW", #RELOAD
-	"SC.Battle.CONSUMABLE_STATES.NO_AMMO"		: "SC.Ui_styles.SERVICE_COLORS.RED", #NO_AMMO
-	"SC.Battle.CONSUMABLE_STATES.PREPARATION"	: "SC.Ui_styles.SERVICE_COLORS.YELLOW", #PREPARATION
+	"SC.Battle.CONSUMABLE_STATES.READY"			: "SC.Ui_styles.SERVICE_COLORS.WHITE",	# READY
+	"SC.Battle.CONSUMABLE_STATES.SELECTED"		: "SC.Ui_styles.SERVICE_COLORS.WHITE",	# SELECTED (for Tactical Cons.)
+	"SC.Battle.CONSUMABLE_STATES.AT_WORK"		: "SC.Ui_styles.SERVICE_COLORS.GREEN",	# AT_WORK
+	"SC.Battle.CONSUMABLE_STATES.RELOAD"		: "SC.Ui_styles.SERVICE_COLORS.YELLOW",	# RELOAD
+	"SC.Battle.CONSUMABLE_STATES.NO_AMMO"		: "SC.Ui_styles.SERVICE_COLORS.RED",	# NO_AMMO
+	"SC.Battle.CONSUMABLE_STATES.PREPARATION"	: "SC.Ui_styles.SERVICE_COLORS.YELLOW",	# PREPARATION
 })
 
 (def constant SQD_CONS_ASSISTANT_CONSUMABLE_STATE_TEXT {
@@ -68,15 +68,15 @@
 			(align = "center")
 		)
 
-    	#mod ==============================
+    	# Mod
 	    (block
 			(style
 				(align="top|center")
 				#(height = "22")
 			)
-			(element SqdConsAssistant "_squadronId")
+			(element SCA_SquadronConsumablesPanel "_squadronId")
 	    )
-    	#==================================
+    	#
 
 		(element PlanesStatusBarText "statusBarTextParams[0]" "statusBarTextParams[1]" "curPlanesInHangar >= maxSquadPlanes")
 
@@ -129,68 +129,63 @@
 	)
 )
 
-#mod =======================================================================================================================================================================================================
-(def element SqdConsAssistant(_squadronId:number)
-	(scope
-
+# Mod
+(def element SCA_SquadronConsumablesPanel(_squadronId:number)
+	(style
+		(align = "bottom")
+		(marginBottom = 4px)
 	)
 
-	(vtile
-		(style
-			(vgap = 10px)
-		)
-
-		(controller $Repeat renderer='SqdConsAssistantConsumableItem'
-			(bind count "SQD_CONS_ASSISTANT_TARGET_CONSUMABLES.length")
-			(args
-				_squadronId="_squadronId"
-				_consumableId="SQD_CONS_ASSISTANT_TARGET_CONSUMABLES[$index]"
-			)
+	(controller $Repeat renderer='SCA_SquadronConsumableRendererItem'
+		(bind count "SQD_CONS_ASSISTANT_TARGET_CONSUMABLES.length")
+		(args
+			_squadronId	 = "_squadronId"
+			_consumableId= "SQD_CONS_ASSISTANT_TARGET_CONSUMABLES[$index]"
 		)
 	)
 )
 
-(def element SqdConsAssistantConsumableItem(_squadronId:number, _consumableId:number)
+(def element SCA_SquadronConsumableRendererItem(_squadronId:number, _consumableId:number)
 	(scope
 		(var battleConsumableEntity:gfx = "$datahub.getPrimaryCompositeEntity(CC.battleConsumable, _consumableId, _squadronId)")
-		#Consumable Entity
-		(var battleConsumable:gfx = "battleConsumableEntity ? battleConsumableEntity.battleConsumable : null")
-		(var consumableNum:number = "battleConsumable.currentCharge" (event "battleConsumable.evCurrentChargeChanged"))
-		(var consumableState:number = "battleConsumable.state" (event "battleConsumable.evStateChanged"))
-
-		(var hasConsumable:bool = "battleConsumable")
-
-		#Countdown
-		(var timer:gfx = "$datahub.getSingleComponent(CC.timer)")
-		(var countdown:gfx = "battleConsumableEntity && battleConsumableEntity.hasComponent(CC.countDown) ? battleConsumableEntity.countDown : null" (event "battleConsumableEntity.evAdded") (event "battleConsumableEntity.evRemoved"))
-		(var remainTime:str = "countdown ? countdown.endTime - timer.currentTime : 0" (event "timer.evFrequent") (event "countdown.evEndTimeChanged"))
-		(var remainTimeStr:str = "floor(remainTime)")
 	)
 
 	(style
-		(bind alpha "hasConsumable ? 1.0 : 0.0")
+		(height = 15px)
+		(align = "middle|center")
 	)
 
-	(element SqdConsAssistantTextItem
-		_remainTimeStr="remainTimeStr"
-		_consumableNum="consumableNum"
-		_consumableState="consumableState"
+	(controller $Instance renderer='SCA_SquadronTimerItem'
+		(bind enabled "battleConsumableEntity")
+		(args
+			_battleConsumableEntity	= "battleConsumableEntity"
+		)
 	)
 )
 
-(def element SqdConsAssistantTextItem(_remainTimeStr:str, _consumableNum:number, _consumableState:number)
+(def element SCA_SquadronTimerItem(_battleConsumableEntity:gfx)
 	(scope
-		(var consumableState:str = "toString(_consumableState)")
-		(var isEmpty:bool = "SC.Battle.CONSUMABLE_STATES.NO_AMMO == _consumableState")
+		# Consumable Entity
+		(var battleConsumable:gfx = "_battleConsumableEntity ? _battleConsumableEntity.battleConsumable : null")
+		(var consumableNum:number = "battleConsumable ? battleConsumable.currentCharge : 0" (event "battleConsumable.evCurrentChargeChanged"))
+		(var consumableState:number = "battleConsumable ? battleConsumable.state : -1" (event "battleConsumable.evStateChanged"))
+		(var consumableStateStr:str = "toString(consumableState)")
+
+		# Countdown
+		(var timer:gfx = "$datahub.getSingleComponent(CC.timer)")
+		(var countdown:gfx = "_battleConsumableEntity && _battleConsumableEntity.hasComponent(CC.countDown) ? _battleConsumableEntity.countDown : null" (event "_battleConsumableEntity.evAdded") (event "_battleConsumableEntity.evRemoved"))
+		(var remainTime:str = "countdown ? countdown.endTime - timer.currentTime : 0" (event "timer.evFrequent") (event "countdown.evEndTimeChanged"))
+
+		(var isEmpty:bool = "SC.Battle.CONSUMABLE_STATES.NO_AMMO == consumableStateStr")
 		
-		(var textColor:number = "	consumableState in SQD_CONS_ASSISTANT_CONSUMABLE_STATE_COLOR ?
-									SQD_CONS_ASSISTANT_CONSUMABLE_STATE_COLOR[consumableState] :
+		(var textColor:number = "	consumableStateStr in SQD_CONS_ASSISTANT_CONSUMABLE_STATE_COLOR ?
+									SQD_CONS_ASSISTANT_CONSUMABLE_STATE_COLOR[consumableStateStr] :
 									SC.Ui_styles.SERVICE_COLORS.WHITE"
 		)
-		(var timeStr:str = 		"	consumableState in SQD_CONS_ASSISTANT_CONSUMABLE_STATE_TEXT ?
-									SQD_CONS_ASSISTANT_CONSUMABLE_STATE_TEXT[consumableState] :
-									_remainTimeStr + 's'"
-		)
+		(var isTimedState:bool = "!(consumableStateStr in SQD_CONS_ASSISTANT_CONSUMABLE_STATE_TEXT)")
+		(var stateText:str = "isTimedState	? floor(remainTime)
+											: SQD_CONS_ASSISTANT_CONSUMABLE_STATE_TEXT[consumableStateStr]
+		")
 	)
 
 	(hblock
@@ -200,28 +195,37 @@
 		)
 		
 		(tf
-			(class $SqdConsAssistantText)
+			(class $SCA_Text)
 			(style
 				(bind textColor "textColor")
-				(bind width "isEmpty ? 100% : 65%")
+				(width = 100%)
+				(bind textAlign "isTimedState ? right : center")
 			)
-			(bind text "timeStr")
+			(bind text "stateText")
 		)
-
 		(tf
-			(class $SqdConsAssistantText)
-			(style
-				(textColor = "SC.Ui_styles.SERVICE_COLORS.WHITE")
-				(width = "35%")
-				(marginLeft = 5px)
-			)
+			(class $SCA_UnitText)
+			(bind visible "isTimedState")
+			(text = 's')
+		)
+		(hblock
 			(bind visible "!isEmpty")
-			(bind text "'/' + _consumableNum")
+			(tf
+				(class $SCA_UnitText)
+				(text = 'x')
+			)
+			(tf
+				(class $SCA_Text)
+				(style
+					(textColor = "SC.Ui_styles.SERVICE_COLORS.WHITE")
+				)
+				(bind text "consumableNum")
+			)
 		)
 	)
 )
 
-(def element SqdConsAssistantSmokeIndication()
+(def element SCA_SmokeIndication()
 	(scope
 		(event evPlayAnimation)
 		(event evEndAnimation)
@@ -313,8 +317,82 @@
 	)
 )
 
-(def css $SqdConsAssistantText ()
+(def css $SCA_Text ()
 	(extends $IndicatorText)
-	(textAlign = "center")
 	(fontSize = 12)
+)
+
+(def css $SCA_UnitText ()
+	(extends $SCA_Text)
+	(fontFamily = '$WWSDefaultFont')
+	(marginLeft = 3px)
+	(marginRight = 3px)
+	(alpha = "TC")
+)
+
+# These const need to be here. Otherwise Ub complains about "undefined variable"
+(def constant AIRCRAFT_PANEL_INSTRUCTION_MESSAGE
+[
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_FIGHTER')",
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_BOMBER')",
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_BOMBER_AP')",
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_SKIP_BOMBER')",
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_SKIP_BOMBER_AP')",
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_TORPEDO')",
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_TORPEDO_DEEPWATER')",
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_FIGHTER_AP')"
+])
+
+(def constant AIRCRAFT_PANEL_INSTRUCTION_MESSAGE_NOT_ENOUGH
+[
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_FIGHTER_NOT_ENOUGH')",
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_BOMBER_NOT_ENOUGH')",
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_BOMBER_AP_NOT_ENOUGH')",
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_SKIP_BOMBER_NOT_ENOUGH')",
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_SKIP_BOMBER_AP_NOT_ENOUGH')",
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_TORPEDO_NOT_ENOUGH')",
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_TORPEDO_DEEPWATER_NOT_ENOUGH')",
+	"tr('IDS_AIRCRAFT_CARRIER_LOGMESSAGE_FIGHTER_AP_NOT_ENOUGH')"
+])
+
+# To prevent this instruction from being rendered right above the consumable assistant
+(def element AircraftCarrierPanelInstruction (_selectedSquadron:number) layout=true dispatch_size_change=true
+	(scope
+		(var selectedSquadron:number = "_selectedSquadron")
+		(var isOnSquadronAndAlive:bool = false)
+		(var hasSelectedSquadron:bool = "selectedSquadron != ActiveSquadron.NONE")
+
+		(var selectedSquadronEntity:gfx = "$datahub.getPrimaryEntity(CC.ownSquadron, selectedSquadron)")
+		(var numPlanes:number = "selectedSquadronEntity ? selectedSquadronEntity.health.value : 0" (event "selectedSquadronEntity.health.evValueChanged"))
+		(var flightState:number = "selectedSquadronEntity ? selectedSquadronEntity.ownSquadron.state : 0" (event "selectedSquadronEntity.ownSquadron.evStateChanged"))
+		(var ammoType:number = "selectedSquadronEntity ? selectedSquadronEntity.plane.ammoType : 0")
+		(var commandId:number = "selectedSquadronEntity ? selectedSquadronEntity.ownSquadron.commandId : 0")
+
+		(var cmdEntity:gfx = "$datahub.getPrimaryEntity(CC.commandMappingCommand, commandId)")
+		(var commandName:str = "commandId ? cmdEntity.commandMappingCommandName.commandName : ''" (event "cmdEntity.commandMappingCommandName.evChanged"))
+
+		(var isNotEnoughMessage:bool = "numPlanes == 0")
+		(var message:str = "isNotEnoughMessage ?
+								AIRCRAFT_PANEL_INSTRUCTION_MESSAGE_NOT_ENOUGH[ammoType] :
+								subst(AIRCRAFT_PANEL_INSTRUCTION_MESSAGE[ammoType], [], {_cmd: '[' + commandName + ']'})")
+		(var resultMessage:str = "hasSelectedSquadron ? message : ''")
+		(var showMessage:bool = "flightState == AIRPLANE_FLIGHT_STATE_INACTIVE && isOnSquadronAndAlive")
+	)
+
+	(controller $Animation
+		(bindcall play duration=0.15 from={alpha:0, y:10} to={alpha:1, y:0} easing="Easing.quad_in" action="killAll" (bind enabled "showMessage"))
+		(bindcall play duration=0.15 from={alpha:1, y:0} to={alpha:0, y:10} easing="Easing.quad_in" action="killAll" (bind enabled "!showMessage"))
+	)
+
+	# Mod
+	(style
+		(marginBottom = 50px)
+	)
+	#
+
+	(tf
+		(style (maxWidth = 590) (textAlign = "center") (leading = -6))
+		(class $TextDefaultBold21NM)
+		(bindcall substitute imageOffset="8" sourceText="resultMessage" postfix='_bg' init=true)
+	)
 )
